@@ -10,6 +10,9 @@ import time
 from typing import Any, Dict, List, Optional
 
 from core import colors, files, state, theme
+from core.log import get as _get_logger
+
+_log = _get_logger("themes.model")
 
 FILE_NAME = "themes.json"
 
@@ -55,6 +58,7 @@ def load_all() -> List[Dict[str, Any]]:
     items = raw.get("themes") if isinstance(raw, dict) else None
     if not isinstance(items, list):
         return []
+    _log.verbose("themes loaded: %d item(s)", len(items))
     cleaned: List[Dict[str, Any]] = []
     for item in items:
         if isinstance(item, dict) and item.get("name"):
@@ -63,7 +67,9 @@ def load_all() -> List[Dict[str, Any]]:
 
 
 def save_all(themes: List[Dict[str, Any]]) -> bool:
-    return files.write_json(FILE_NAME, {"version": 1, "themes": themes})
+    ok = files.write_json(FILE_NAME, {"version": 1, "themes": themes})
+    _log.debug("themes saved: %d item(s), ok=%s", len(themes), ok)
+    return ok
 
 
 def _normalize(item: Dict[str, Any]) -> Dict[str, Any]:
@@ -110,6 +116,7 @@ def apply(item: Dict[str, Any]) -> int:
     """Apply a theme to the current look. Returns the number of color keys."""
     if not theme.available():
         state.note_error("theme API unavailable")
+        _log.warning("cannot apply theme %s: color API unavailable", item.get("name"))
         return 0
     theme.revert()
     applied = 0
@@ -125,6 +132,7 @@ def apply(item: Dict[str, Any]) -> int:
                 applied += 1
     if applied:
         theme.refresh_after_apply()
+    _log.info("theme applied: %s (%d color key(s))", item.get("name"), applied)
     state.count_hook_event()
     return applied
 

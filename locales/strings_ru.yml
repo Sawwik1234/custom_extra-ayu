@@ -100,3 +100,7 @@ diag_android: Android
 diag_sdk: SDK плагинов
 diag_copy_log: Скопировать лог
 diag_reset: Сбросить все настройки
+diag_log_buffer: "В буфере лога: {count}"
+diag_log_level: Уровень логов
+diag_log_level_sub: Debug пишет подробный вывод для plugin.custom_extra_ayu
+diag_platform: Поддержка платформы

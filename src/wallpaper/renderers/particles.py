@@ -14,7 +14,6 @@ import math
 import random
 from typing import Any, Dict, List
 
-from core import colors
 from wallpaper.renderers.base import Renderer, clamp, dim_color
 
 SNOW = "snow"

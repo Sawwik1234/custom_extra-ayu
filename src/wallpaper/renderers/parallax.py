@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, Optional
 
-from core import colors, images, javabridge
+from core import images, javabridge
 from wallpaper.renderers.base import Renderer, dim_color
 
 

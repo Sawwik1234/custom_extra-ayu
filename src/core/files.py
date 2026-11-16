@@ -12,6 +12,8 @@ import os
 import time
 from typing import Any, Dict, Optional, Tuple
 
+from core.log import get as _get_logger
+
 PLUGIN_ID = "custom_extra_ayu"
 
 MEDIA_DIRS = ("cache", "backgrounds", "skins", "themes", "tmp")
@@ -57,21 +59,11 @@ except Exception:  # pragma: no cover
             return False
 
 
-logger: Any = None
-
-
-def bind(log: Any = None) -> None:
-    global logger
-    if log is not None:
-        logger = log
+_log = _get_logger("core.files")
 
 
 def _warn(message: str) -> None:
-    if logger is not None:
-        try:
-            logger.warning("%s", message)
-        except Exception:
-            pass
+    _log.warning(message)
 
 
 def init() -> None:
@@ -85,6 +77,7 @@ def init() -> None:
         return
     for name in MEDIA_DIRS:
         ensure_dir_exists(os.path.join(_plugins_dir, name))
+    _log.debug("storage ready at %s", _plugins_dir)
 
 
 def root() -> str:
@@ -176,6 +169,7 @@ def copy_to_cache(source_path: str, prefix: str = "file") -> Optional[str]:
         ext = extension(source_path) or "bin"
         target = path("cache", "%s_%s_%s.%s" % (prefix, digest, stamp, ext))
         ensure(path("cache"))
+        _log.debug("copying %s -> %s", os.path.basename(source_path), os.path.basename(target))
         with open(source_path, "rb") as src, open(target, "wb") as dst:
             while True:
                 chunk = src.read(256 * 1024)
@@ -315,6 +309,8 @@ def prune_cache(now: Optional[float] = None) -> Tuple[int, int]:
             drop(item)
             total -= item[1]
 
+    if removed_files:
+        _log.info("cache pruned: %d file(s), %.1f MB", removed_files, removed_bytes / (1024.0 * 1024.0))
     return (removed_files, removed_bytes)
 
 

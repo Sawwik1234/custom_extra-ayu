@@ -100,3 +100,7 @@ diag_android: Android
 diag_sdk: Plugin SDK
 diag_copy_log: Copy log
 diag_reset: Reset all settings
+diag_log_buffer: "Log buffer: {count} record(s)"
+diag_log_level: Log level
+diag_log_level_sub: Debug writes verbose output for plugin.custom_extra_ayu
+diag_platform: Platform support

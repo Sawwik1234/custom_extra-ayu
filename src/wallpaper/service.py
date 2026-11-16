@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from core import assets, engine, files, prefs, state
+from core.log import get as _get_logger
 from wallpaper import host as host_module
 from wallpaper.host import WallpaperHost
 from wallpaper.overrides import Overrides
@@ -17,6 +18,8 @@ from wallpaper.overrides import Overrides
 SCREEN_CHAT = "chat"
 SCREEN_DIALOGS = "dialogs"
 SCREEN_OTHER = "other"
+
+_log = _get_logger("wallpaper.service")
 
 
 def _dialog_id_of(activity: Any) -> Optional[int]:
@@ -58,9 +61,11 @@ class WallpaperService:
 
     # -- configuration ------------------------------------------------------
     def load(self) -> None:
-        self.overrides.load()
-        self._prune_cache()
-        self.refresh()
+        with _log.timed("wallpaper service load", level_value=4):
+            self.overrides.load()
+            _log.debug("chat overrides loaded: %d", self.overrides.count())
+            self._prune_cache()
+            self.refresh()
 
     def _prune_cache(self) -> None:
         try:
@@ -77,6 +82,14 @@ class WallpaperService:
             state.clear_error()
         self._kind = self._resolve_kind(None)
         self._theme_fallback = _fallback_color()
+        _log.info(
+            "source refreshed: %s, kind=%s, local=%s",
+            self.describe_source(),
+            self._kind,
+            "yes" if self._local_path else "no",
+        )
+        if self._local_error:
+            _log.warning("source error: %s", self._local_error)
         for key in list(self._hosts.keys()):
             self._rebuild(key)
 
@@ -140,6 +153,7 @@ class WallpaperService:
         key = "%s:%s" % (screen, dialog_id if dialog_id is not None else "-")
         host = self._hosts.get(key)
         if host is None:
+            _log.debug("new host for %s (kind=%s)", key, self._resolve_kind(dialog_id))
             kind = self._resolve_kind(dialog_id)
             host = WallpaperHost(self.prefs, kind, self._local_path)
             host.dialog_id = dialog_id  # type: ignore[attr-defined]
@@ -157,6 +171,8 @@ class WallpaperService:
             host.detach()
 
     def detach_all(self) -> None:
+        if self._hosts:
+            _log.info("detaching %d host(s)", len(self._hosts))
         for key in list(self._hosts.keys()):
             self.detach_key(key)
         engine.scheduler.stop_all()
@@ -208,6 +224,7 @@ class WallpaperService:
     # -- per-chat helpers ---------------------------------------------------
     def assign_override(self, dialog_id: int, data: Dict[str, Any]) -> bool:
         ok = self.overrides.set(dialog_id, data)
+        _log.info("override for chat %s: %s (saved=%s)", dialog_id, data.get("kind"), ok)
         key = "%s:%s" % (SCREEN_CHAT, dialog_id)
         if key in self._hosts:
             self._rebuild(key)
@@ -215,6 +232,7 @@ class WallpaperService:
 
     def clear_override(self, dialog_id: int) -> bool:
         ok = self.overrides.clear(dialog_id)
+        _log.info("override cleared for chat %s (saved=%s)", dialog_id, ok)
         key = "%s:%s" % (SCREEN_CHAT, dialog_id)
         if key in self._hosts:
             self._rebuild(key)

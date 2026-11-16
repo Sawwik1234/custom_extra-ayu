@@ -11,12 +11,12 @@ from __future__ import annotations
 import os
 from typing import Any, Callable, List, Optional
 
-from core import assets, colors, files, javabridge, prefs, state, theme
+from core import assets, colors, compat, files, javabridge, prefs, state, theme
 from i18n import locale, t
 from skins import registry as skins_registry
 from themes import model as themes_model
 from ayu_ui import compose
-from ayu_ui.bulletin import bulletin_error, bulletin_info, dialog_choose, dialog_message
+from ayu_ui.bulletin import bulletin_error, dialog_choose
 
 KIND_LABELS = (
     (prefs.KIND_GRADIENT, "kind_gradient"),
@@ -521,7 +521,8 @@ class Pages:
         plugin = self.plugin
         rows: List[Any] = [compose.header(t("diag_header_env"))]
         rows.append(compose.info(t("diag_client"), plugin.client_version()))
-        rows.append(compose.info(t("diag_android"), "%s (SDK %d)" % (plugin.android_release(), javabridge.android_sdk())))
+        rows.append(compose.info(t("diag_android"), "%s (API %d)" % (plugin.android_release(), compat.android_version())))
+        rows.append(compose.info(t("diag_platform"), compat.summary(), accent=compat.supported(), red=not compat.supported()))
         rows.append(compose.info(t("diag_sdk"), plugin.plugin_sdk_version()))
         rows.append(compose.divider(t("diag_headers")))
         for name, bound in sorted(javabridge.bindings().items()):
@@ -546,9 +547,9 @@ class Pages:
         rows.append(
             compose.switch(
                 "diag_debug",
-                "Debug logs",
+                t("diag_log_level"),
                 self.prefs.bool("diag_debug"),
-                "Verbose logcat output for plugin.custom_extra_ayu",
+                t("diag_log_level_sub"),
                 on_change=lambda value: plugin.set_debug(value),
             )
         )

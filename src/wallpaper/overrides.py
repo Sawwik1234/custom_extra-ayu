@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from core import files, state
+from core import files
 
 FILE_NAME = "overrides.json"
 

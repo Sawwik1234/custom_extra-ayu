@@ -11,6 +11,9 @@ import os
 from typing import Any, Dict, Optional
 
 from core import files
+from core.log import get as _get_logger
+
+_log = _get_logger("core.l10n")
 
 LOCALES_DIR_NAME = "locales"
 
@@ -37,8 +40,7 @@ def _load_yaml(path_value: str) -> Optional[Dict[str, str]]:
     try:
         data = yaml.safe_load(raw)
     except Exception as error:
-        if files.logger is not None:
-            files.logger.warning("cannot parse %s: %s" % (path_value, error))
+        _log.warning("cannot parse %s: %s", path_value, error)
         return None
     if not isinstance(data, dict):
         return None
@@ -67,4 +69,5 @@ def load(lang: str) -> Dict[str, str]:
         data = _load_yaml(path_value)
         if data:
             merged.update(data)
+            _log.debug("locale %s: %d string(s)", code, len(data))
     return merged

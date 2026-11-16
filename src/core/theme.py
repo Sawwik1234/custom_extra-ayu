@@ -10,18 +10,13 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from core import colors, javabridge
+from core.log import get as _get_logger
 
-logger: Any = None
+_log = _get_logger("core.theme")
 
 # Values applied by the plugin: (key, original_color, applied_color).
 _applied: List[Tuple[str, int, int]] = []
 _theme_available: Optional[bool] = None
-
-
-def bind(log: Any = None) -> None:
-    global logger
-    if log is not None:
-        logger = log
 
 
 def _theme_class() -> Optional[Any]:
@@ -73,6 +68,7 @@ def set_color(key_name: str, value: int) -> bool:
     key = color_key(key_name)
     theme = _theme_class()
     if key is None or theme is None:
+        _log.once("theme-missing-%s" % key_name, "color key %s unavailable", key_name)
         return False
     before = current(key_name, 0)
     try:
@@ -84,6 +80,7 @@ def set_color(key_name: str, value: int) -> bool:
             _note("setColor failed for %s: %s" % (key_name, error))
             return False
     _remember(key_name, before, int(value) & 0xFFFFFFFF)
+    _log.verbose("color %s: %s -> %s", key_name, colors.to_hex(before), colors.to_hex(int(value)))
     return True
 
 
@@ -133,6 +130,8 @@ def revert() -> int:
             restored += 1
     _applied.clear()
     refresh_after_apply()
+    if restored:
+        _log.info("theme colors restored (%d key(s))", restored)
     return restored
 
 
@@ -153,8 +152,4 @@ def applied_keys() -> int:
 
 
 def _note(message: str) -> None:
-    if logger is not None:
-        try:
-            logger.warning("%s", message)
-        except Exception:
-            pass
+    _log.warning(message)

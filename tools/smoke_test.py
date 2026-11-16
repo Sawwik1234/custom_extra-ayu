@@ -35,6 +35,17 @@ class FakeLogger:
     def __init__(self):
         self.lines = []
         self.level = None
+        self.handlers = []
+
+    def add_handler(self, handler):
+        self.handlers.append(handler)
+
+    def remove_handler(self, handler):
+        try:
+            self.handlers.remove(handler)
+            return True
+        except ValueError:
+            return False
 
     def _log(self, level, message, *args):
         try:
@@ -42,6 +53,9 @@ class FakeLogger:
         except Exception:
             text = str(message)
         self.lines.append("%s %s" % (level, text))
+
+    def verbose(self, message, *args, **kwargs):
+        self._log("V", message, *args)
 
     def debug(self, message, *args, **kwargs):
         self._log("D", message, *args)
@@ -329,6 +343,70 @@ def main():
         plugin.on_plugin_unload()
 
     check("every settings page", t_pages)
+
+    def t_logging():
+        from core import log as log_module
+
+        class HostLogger(FakeLogger):
+            pass
+
+        host = HostLogger()
+        log_module.clear()
+        log_module.bind(host)
+        log_module.set_level("debug")
+        logger = log_module.get("wallpaper.attach")
+        logger.info("hello %s", "world")
+        logger.debug("detail %d", 7)
+        logger.warning("careful")
+        logger.error("broken")
+        logger.exception("with traceback")
+        logger.once("k", "repeat")
+        logger.once("k", "repeat")
+        with logger.timed("work"):
+            pass
+        logger.child("sub").info("child line")
+        logger.dump({"a": 1}, "payload")
+
+        text = log_module.recent()
+        assert "hello world" in text, text
+        assert "attach" in text
+        assert text.count("repeat") == 1, "once() should de-duplicate"
+        assert "took" in text, "timer output missing"
+        assert log_module.error_count() >= 2
+        assert log_module.last_error()
+        stats = log_module.stats()
+        assert stats["buffered"] > 5
+
+        # host logger receives the same lines
+        joined = "\n".join(host.lines)
+        assert "hello world" in joined, joined
+
+        # level filtering
+        log_module.set_level("error")
+        before = len(log_module.recent(limit=500))
+        logger.debug("should be dropped")
+        assert "should be dropped" not in log_module.recent(limit=500)
+        log_module.set_level("debug")
+
+        # broken host logger must not raise
+        class Broken:
+            level = None
+
+            def __getattr__(self, name):
+                def boom(*args, **kwargs):
+                    raise RuntimeError("host logger is broken")
+
+                return boom
+
+            def add_handler(self, handler):
+                raise RuntimeError("cannot add")
+
+        log_module.bind(Broken())
+        broke = log_module.get("core.files")
+        broke.warning("still works")
+        assert "still works" in log_module.recent(limit=50)
+
+    check("logging layer", t_logging)
 
     print()
     if FAILURES:

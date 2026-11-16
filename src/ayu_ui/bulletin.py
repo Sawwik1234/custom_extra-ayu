@@ -6,7 +6,7 @@ the action the user asked for, so everything here is best-effort.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 try:
     from ui.bulletin import BulletinHelper  # type: ignore

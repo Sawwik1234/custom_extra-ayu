@@ -13,7 +13,10 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from core import files, javabridge
+from core.log import get as _get_logger
 from wallpaper.renderers.base import Renderer
+
+_log = _get_logger("wallpaper.renderers.video")
 
 
 class VideoRenderer(Renderer):
@@ -46,6 +49,7 @@ class VideoRenderer(Renderer):
         if surface_class is None or player_class is None or container is None:
             return None
 
+        _log.info("starting video background: %s", files.extension(self.path) or "video")
         try:
             view = surface_class(container.getContext())
             try:
@@ -92,6 +96,7 @@ class VideoRenderer(Renderer):
             return
 
         self._player = player
+        _log.info("video background playing (looping=%s, muted=%s)", self.looping, self.muted)
 
     def draw(self, canvas: Any, width: int, height: int, delta: float) -> bool:
         # Playback is handled by the platform; the shared scheduler only keeps
@@ -149,14 +154,12 @@ class VideoRenderer(Renderer):
             pass
 
     def release(self) -> None:
+        if self._player is not None:
+            _log.debug("video background released")
         self._release_player()
         self._surface_view = None
         self._holder_listener = None
         super().release()
 
     def _note(self, message: str) -> None:
-        if javabridge.logger is not None:
-            try:
-                javabridge.logger.warning("%s", message)
-            except Exception:
-                pass
+        _log.warning(message)

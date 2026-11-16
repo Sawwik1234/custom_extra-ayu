@@ -10,7 +10,10 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from core import colors, javabridge, state, theme
+from core.log import get as _get_logger
 from skins import registry
+
+_log = _get_logger("skins.apply")
 
 TINT_KEY_MAP = {
     registry.ELEMENT_OUT: ("key_chat_outBubble", "key_chat_outBubbleSelected"),
@@ -33,6 +36,7 @@ def resolved_mode(prefs_obj: Any) -> str:
         return "texture" if texture_mode_available() else "tint"
     if mode == "texture" and not texture_mode_available():
         state.note_error("texture mode unavailable, using colors")
+        _log.warning("texture mode requested but chat cells are unreachable; using colors")
         return "tint"
     return mode or "tint"
 
@@ -61,6 +65,7 @@ def apply_tints(skin: Optional[registry.Skin], prefs_obj: Any) -> int:
                 applied += 1
     if applied:
         theme.refresh_after_apply()
+    _log.debug("skin tints applied: %d key(s)", applied)
     return applied
 
 
@@ -80,6 +85,10 @@ def apply_textures(skin: Optional[registry.Skin], prefs_obj: Any) -> int:
             continue
         if _bind_element(element, drawable):
             bound += 1
+        else:
+            _log.once("skin-unbound-%s" % element, "element %s has an image but no attach point", element)
+    if bound:
+        _log.info("skin textures bound: %d element(s)", bound)
     return bound
 
 
