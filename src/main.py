@@ -21,7 +21,7 @@ from base_plugin import (
     MenuItemType,
 )  # type: ignore
 
-from core import assets, engine, files, javabridge, prefs as prefs_module, state, theme
+from core import assets, compat, engine, files, javabridge, log as log_module, prefs as prefs_module, state, theme
 import i18n
 from i18n import t
 from skins import apply as skins_apply
@@ -30,10 +30,13 @@ from themes import model as themes_model
 from ayu_ui import compose
 from ayu_ui.bulletin import bulletin_error, bulletin_info, bulletin_success, clipboard
 from ayu_ui.dialogs import dialog_choose
-from core import net as net_module
 from ayu_ui.pages import Pages
+from core.log import get as _get_logger
 from wallpaper import attach as attach_module
-from wallpaper.service import SCREEN_CHAT, WallpaperService
+from wallpaper.service import WallpaperService
+
+
+_log = _get_logger("main")
 
 
 def _dialog_title(context: Optional[Dict[str, Any]]) -> str:
@@ -56,18 +59,17 @@ class CustomExtraAyuPlugin(BasePlugin):
     # -- lifecycle ----------------------------------------------------------
     def on_plugin_load(self) -> None:
         i18n.init()
-        files.bind(self.logger)
-        javabridge.bind(self.logger)
-        engine.bind(self.logger)
-        theme.bind(self.logger)
-        attach_module.bind(self.logger)
+        log_module.bind(self.logger)
+        self._apply_log_level()
+        _log.info("bootstrap: log level %s, buffer %d", log_module.stats()["level"], log_module.count())
 
-        files.init()
+        with _log.timed("files.init"):
+            files.init()
         self.prefs = prefs_module.Prefs(self)
         state.clear_error()
 
-        self._apply_log_level()
-        self.wallpaper = WallpaperService(self.prefs)
+        with _log.timed("wallpaper service"):
+            self.wallpaper = WallpaperService(self.prefs)
         self.skins = skins_registry.Registry()
         self.pages = Pages(self)
 
@@ -76,24 +78,32 @@ class CustomExtraAyuPlugin(BasePlugin):
         self._await_picked_file = False
         self._pending_theme_index: int = -1
 
-        self.wallpaper.load()
+        with _log.timed("wallpaper load"):
+            self.wallpaper.load()
         self.apply_performance()
-        self._install_attach()
+        with _log.timed("attach install"):
+            self._install_attach()
         self._bind_file_picker()
         self._register_menu_items()
         self._register_send_hook()
-        self.apply_skins()
+        with _log.timed("skins apply"):
+            self.apply_skins()
         self._reapply_theme()
 
-        self.logger.info(
-            "loaded %s (%s), wallpaper=%s source=%s",
+        _log.info(
+            "loaded %s v%s | wallpaper=%s kind=%s source=%s | skins=%s | android API %d",
             self.getName(),
             self.version,
             self.prefs.bool("wallpaper_enabled"),
+            self.wallpaper.current_kind(),
             self.wallpaper.describe_source(),
+            self.prefs.bool("skins_enabled"),
+            compat.android_version(),
         )
+        _log.debug("hook bindings: %s", javabridge.bindings())
 
     def on_plugin_unload(self) -> None:
+        _log.info("unloading, %d log record(s) buffered", log_module.count())
         try:
             engine.shutdown()
         except Exception:
@@ -123,7 +133,7 @@ class CustomExtraAyuPlugin(BasePlugin):
                 self._attach.uninstall()
         except Exception:
             pass
-        self.logger.info("unloaded")
+        _log.info("unloaded cleanly")
 
     def on_app_event(self, event_type: AppEvent) -> None:
         scheduler = engine.scheduler
@@ -168,7 +178,7 @@ class CustomExtraAyuPlugin(BasePlugin):
             )
         except Exception as error:
             state.note_error("settings build failed: %s" % error)
-            self.logger.exception("settings build failed")
+            _log.exception("settings build failed")
             rows = [compose.info("Custom Extra Ayu", str(error), red=True)]
         return rows
 
@@ -179,7 +189,7 @@ class CustomExtraAyuPlugin(BasePlugin):
         try:
             self._attach.install()
         except Exception:
-            self.logger.exception("attach installation failed")
+            _log.exception("attach installation failed")
 
     def _bind_file_picker(self) -> None:
         """Watch the screen result callback to catch a file picked by the user."""
@@ -194,7 +204,7 @@ class CustomExtraAyuPlugin(BasePlugin):
             method = activity.getDeclaredMethod("onActivityResult", int_class, int_class, Intent)
             method.setAccessible(True)
         except Exception as error:
-            self.logger.debug("file picker hook unavailable: %s", error)
+            _log.debug("file picker hook unavailable: %s", error)
             return
 
         plugin = self
@@ -244,7 +254,7 @@ class CustomExtraAyuPlugin(BasePlugin):
         try:
             self._picker_unhook = self.hook_method(method, after=after)
         except Exception as error:
-            self.logger.debug("file picker hook failed: %s", error)
+            _log.debug("file picker hook failed: %s", error)
 
     def _register_menu_items(self) -> None:
         specs = (
@@ -266,13 +276,13 @@ class CustomExtraAyuPlugin(BasePlugin):
                 if item_id:
                     self._menu_ids.append(item_id)
             except Exception:
-                self.logger.warning("menu item %s unavailable", menu_type)
+                _log.warning("menu item %s unavailable", menu_type)
 
     def _register_send_hook(self) -> None:
         try:
             self.add_on_send_message_hook()
         except Exception:
-            self.logger.warning("send-message hook unavailable")
+            _log.warning("send-message hook unavailable")
 
     def on_send_message_hook(self, account: int, params: Any) -> HookResult:
         """`.ayu` prints a short status bulletin."""
@@ -301,7 +311,7 @@ class CustomExtraAyuPlugin(BasePlugin):
             self.wallpaper.refresh()
             self.apply_performance()
         except Exception:
-            self.logger.exception("wallpaper refresh failed")
+            _log.exception("wallpaper refresh failed")
 
     def on_url_entered(self, value: Any) -> None:
         url = str(value or "").strip()
@@ -350,7 +360,7 @@ class CustomExtraAyuPlugin(BasePlugin):
                 activity.startActivityForResult(intent, 4211)
                 opened = True
         except Exception as error:
-            self.logger.debug("file picker failed: %s", error)
+            _log.debug("file picker failed: %s", error)
 
         if not opened:
             self.scan_backgrounds_folder()
@@ -479,7 +489,7 @@ class CustomExtraAyuPlugin(BasePlugin):
             if item is not None:
                 themes_model.apply(item)
         except Exception:
-            self.logger.exception("theme reapply failed")
+            _log.exception("theme reapply failed")
 
     # -- skin callbacks -----------------------------------------------------
     def apply_skins(self, force_reload: bool = False) -> None:
@@ -499,7 +509,7 @@ class CustomExtraAyuPlugin(BasePlugin):
             skins_apply.apply_tints(skin, self.prefs)
             self.on_theme_changed()
         except Exception:
-            self.logger.exception("skin apply failed")
+            _log.exception("skin apply failed")
 
     def activate_skin(self, index: Any, folders: List[str]) -> None:
         try:
@@ -546,7 +556,7 @@ class CustomExtraAyuPlugin(BasePlugin):
             self._await_import = kind
             context.startActivityForResult(intent, 4212 if kind == "skin" else 4213)
         except Exception:
-            self.logger.exception("import dialog failed")
+            _log.exception("import dialog failed")
             bulletin_error("cannot open file picker")
 
     def handle_import_uri(self, kind: str, uri: Any) -> None:
@@ -671,7 +681,7 @@ class CustomExtraAyuPlugin(BasePlugin):
         try:
             self.wallpaper.apply_performance()
         except Exception:
-            self.logger.exception("performance apply failed")
+            _log.exception("performance apply failed")
 
     # -- diagnostics --------------------------------------------------------
     def client_version(self) -> str:
@@ -719,24 +729,40 @@ class CustomExtraAyuPlugin(BasePlugin):
         self._apply_log_level()
 
     def _apply_log_level(self) -> None:
+        """Debug switch on the diagnostics page drives both loggers."""
+        debug = False
         try:
-            from log_utils import LogLevel  # type: ignore
-
-            self.logger.level = LogLevel.DEBUG if self.prefs.bool("diag_debug") else None
+            debug = self.prefs.bool("diag_debug")
         except Exception:
-            pass
+            debug = False
+        log_module.set_level("debug" if debug else "info")
+        _log.info("log level set to %s", "debug" if debug else "info")
 
     def copy_log(self) -> None:
-        lines = [
-            "plugin.custom_extra_ayu",
-            "build %s" % self.version,
-            "client %s · android %s" % (self.client_version(), self.android_release()),
-            "wallpaper %s / %s / %s" % (self._state_key(), self.wallpaper.current_kind(), self.wallpaper.describe_source()),
-            "hooks %s" % javabridge.bindings(),
-            "events %s" % state.hook_events,
-            "error %s" % (state.last_error or "-"),
+        """Copy environment plus the real recent log lines."""
+        header = [
+            "=== Custom Extra Ayu ===",
+            "build: %s" % self.version,
+            "client: %s · android %s (API %d)" % (
+                self.client_version(),
+                self.android_release(),
+                compat.android_version(),
+            ),
+            "wallpaper: %s / %s / %s" % (
+                self._state_key(),
+                self.wallpaper.current_kind(),
+                self.wallpaper.describe_source(),
+            ),
+            "skins: %s / %s" % (self.prefs.bool("skins_enabled"), state.skin_source or "-"),
+            "hooks: %s" % javabridge.bindings(),
+            "events: %d" % state.hook_events,
+            "log: %s" % log_module.stats(),
+            "=== log ===",
         ]
-        clipboard("\n".join(lines))
+        body = log_module.recent(limit=150)
+        text = "\n".join(header + [body or "(empty)"])
+        clipboard(text)
+        _log.info("log copied (%d chars)", len(text))
         bulletin_info(t("diag_copied"))
 
     def reset_everything(self) -> None:
@@ -748,6 +774,14 @@ class CustomExtraAyuPlugin(BasePlugin):
         self.apply_performance()
         self.on_wallpaper_changed()
         bulletin_info(t("diag_reset_done"))
+
+    def _log_summary(self) -> str:
+        stats = log_module.stats()
+        last = log_module.last_error()
+        parts = ["level %s" % stats["level"], "errors %d" % stats["errors"]]
+        if last:
+            parts.append(last[:80])
+        return " · ".join(parts)
 
     def _state_key(self) -> str:
         if state.render_state == state.STATE_RUNNING:

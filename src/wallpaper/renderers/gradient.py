@@ -9,8 +9,8 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Optional
 
-from core import colors, javabridge
-from wallpaper.renderers.base import Renderer, dim_color, new_paint
+from core import javabridge
+from wallpaper.renderers.base import Renderer, dim_color
 
 
 class GradientRenderer(Renderer):

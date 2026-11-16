@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from core import compat, javabridge, state
+from core.log import get as _get_logger
 from wallpaper import host as host_module
 from wallpaper.service import SCREEN_CHAT, SCREEN_DIALOGS, SCREEN_OTHER, WallpaperService
 
@@ -27,13 +28,7 @@ HOOK_CELL = "ChatMessageCell"
 HOOK_SCROLL = "RecyclerListView"
 HOOK_THEME = "Theme"
 
-logger: Any = None
-
-
-def bind(log: Any = None) -> None:
-    global logger
-    if log is not None:
-        logger = log
+_log = _get_logger("wallpaper.attach")
 
 
 def probe() -> Dict[str, bool]:
@@ -46,6 +41,10 @@ def probe() -> Dict[str, bool]:
         HOOK_THEME: javabridge.has("Theme"),
     }
     state.hooks.update(result)
+    _log.info(
+        "probe: %s",
+        ", ".join("%s=%s" % (name, "ok" if bound else "no") for name, bound in sorted(result.items())),
+    )
     return result
 
 
@@ -146,7 +145,14 @@ class AttachManager:
             return
         dialog_id = _dialog_id_of(activity)
         host = self.service.host_for(SCREEN_CHAT, dialog_id)
-        self._install(activity, host, "chat:%s" % dialog_id)
+        installed = self._install(activity, host, "chat:%s" % dialog_id)
+        _log.debug(
+            "chat %s: %s, kind=%s, installed=%s",
+            dialog_id,
+            "enabled" if installed else "attach failed",
+            host.kind,
+            installed,
+        )
 
     # -- chat list ----------------------------------------------------------
     def _bind_dialogs_activity(self) -> None:
@@ -183,7 +189,8 @@ class AttachManager:
         if not self.service.enabled_for(SCREEN_DIALOGS):
             return
         host = self.service.host_for(SCREEN_DIALOGS, None)
-        self._install(activity, host, "dialogs")
+        if self._install(activity, host, "dialogs"):
+            _log.debug("chat list background installed (kind=%s)", host.kind)
 
     # -- other screens ------------------------------------------------------
     def bind_everywhere(self) -> None:
@@ -322,6 +329,10 @@ class AttachManager:
         return bool(result.get("ok"))
 
     def _install_sync(self, activity: Any, host: Any, key: str) -> bool:
+        with _log.timed("attach %s" % key):
+            return self._install_steps(activity, host, key)
+
+    def _install_steps(self, activity: Any, host: Any, key: str) -> bool:
         fade = self.service.prefs.bool("wallpaper_fade")
         duration = self.service.prefs.int("wallpaper_fade_duration")
 
@@ -333,6 +344,7 @@ class AttachManager:
                 host.attach(width, height)
                 if _insert_behind(content, view):
                     self._installed[key] = view
+                    _log.debug("background view inserted behind %s (%dx%d)", key, width, height)
                     if fade and duration > 0:
                         _fade_in(view, duration)
                     return True
@@ -348,7 +360,9 @@ class AttachManager:
         host.attach(host.width or 1080, host.height or 1920)
         if _install_drawable(activity, java_object):
             self._installed[key] = java_object
+            _log.debug("background drawable installed for %s", key)
             return True
+        _log.once("install-failed-%s" % key, "no attach point found for %s", key)
         return False
 
     def _refresh(self, host: Any) -> None:
@@ -472,8 +486,4 @@ def _count() -> None:
 
 def _note(message: str) -> None:
     state.note_error(message)
-    if logger is not None:
-        try:
-            logger.warning("%s", message)
-        except Exception:
-            pass
+    _log.warning(message)

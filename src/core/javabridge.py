@@ -9,7 +9,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-logger: Any = None
+from core.log import get as _get_logger
+
+_log = _get_logger("core.javabridge")
+
 _classes: Dict[str, Any] = {}
 _missing: Dict[str, bool] = {}
 _bound_methods: Dict[str, bool] = {}
@@ -49,18 +52,8 @@ CLASS_NAMES = {
 }
 
 
-def bind(log: Any = None) -> None:
-    global logger
-    if log is not None:
-        logger = log
-
-
 def _warn(message: str) -> None:
-    if logger is not None:
-        try:
-            logger.debug("%s", message)
-        except Exception:
-            pass
+    _log.verbose(message)
 
 
 def find_class(fqcn: str) -> Optional[Any]:
@@ -85,9 +78,10 @@ def find_class(fqcn: str) -> Optional[Any]:
             java_class = None
     if java_class is None:
         _missing[fqcn] = True
-        _warn("class not found: %s" % fqcn)
+        _log.once("missing-%s" % fqcn, "class not found: %s", fqcn, level_value=3)
         return None
     _classes[fqcn] = java_class
+    _log.verbose("class resolved: %s", fqcn)
     return java_class
 
 
@@ -139,3 +133,15 @@ def application_context() -> Optional[Any]:
     except Exception:
         pass
     return None
+
+
+def coverage() -> Dict[str, Any]:
+    """How many probe classes resolved vs failed, for diagnostics."""
+    total = len(CLASS_NAMES)
+    resolved = len(_classes)
+    return {
+        "total": total,
+        "resolved": resolved,
+        "missing": sorted(_missing.keys()),
+        "bindings": len(_bound_methods),
+    }

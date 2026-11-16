@@ -16,11 +16,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from core import colors, compat, engine, javabridge, state
+from core import engine, state
+from core.log import get as _get_logger
 from wallpaper.renderers import Renderer, create, settings_for
 from wallpaper.renderers.video import VideoRenderer
 
 _peer_counter = 0
+_log = _get_logger("wallpaper.host")
 
 
 class WallpaperHost:
@@ -42,6 +44,10 @@ class WallpaperHost:
 
     # -- setup --------------------------------------------------------------
     def build(self) -> None:
+        with _log.timed("build renderer %s" % self.kind):
+            self._build_renderer()
+
+    def _build_renderer(self) -> None:
         self.renderer = create(self.kind)
         settings = settings_for(self.prefs, self.kind, self.local_path, self._fallback_color)
         try:
@@ -61,6 +67,7 @@ class WallpaperHost:
         except Exception as error:
             self._note("renderer prepare failed: %s" % error)
         self.attached = True
+        _log.debug("host attached %s %dx%d", self.kind, self.width, self.height)
         engine.scheduler.add(self)
 
     # -- attaching to a live screen ----------------------------------------
@@ -109,6 +116,7 @@ class WallpaperHost:
                 self.renderer.release()
             except Exception:
                 pass
+        _log.debug("host detached %s", self.kind)
         self.renderer = None
         self.view = None
         self.drawable_peer = None
@@ -146,7 +154,7 @@ class WallpaperHost:
         try:
             return bool(self.renderer.draw(canvas, self.width, self.height, self._last_frame or 0.016))
         except Exception as error:
-            self._note("render failed: %s" % error)
+            _log.once("render-%s" % self.kind, "render failed (%s): %s", self.kind, error)
             return False
 
     def target_size(self) -> tuple:
@@ -159,11 +167,7 @@ class WallpaperHost:
 
     def _note(self, message: str) -> None:
         state.note_error(message)
-        if javabridge.logger is not None:
-            try:
-                javabridge.logger.warning("%s", message)
-            except Exception:
-                pass
+        _log.warning(message)
 
 
 def build_video_overlay(host: WallpaperHost) -> Optional[Any]:

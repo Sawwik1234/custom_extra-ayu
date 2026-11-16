@@ -18,6 +18,9 @@ from typing import Any, Dict, List, Optional
 
 from core import colors, files, images, state
 from core.files import write_file
+from core.log import get as _get_logger
+
+_log = _get_logger("skins.registry")
 
 ELEMENT_OUT = "out_bubble"
 ELEMENT_IN = "in_bubble"
@@ -68,6 +71,13 @@ class Skin:
                 if files.exists(candidate):
                     self.images[element] = candidate
                     break
+        _log.info(
+            "skin %s loaded: %d/%d element(s) [%s]",
+            self.skin_id,
+            len(self.images),
+            len(ELEMENTS),
+            ", ".join(sorted(self.images.keys())) or "none",
+        )
         return len(self.images)
 
     def has(self, element: str) -> bool:
@@ -153,6 +163,8 @@ class Registry:
             return 0
         skin = Skin(skin_id, folder)
         count = skin.load()
+        if not count:
+            _log.warning("skin %s has no images yet", skin_id)
         self.active = skin
         self._skins[skin_id] = skin
         state.skin_elements = count
@@ -161,6 +173,7 @@ class Registry:
 
     def deactivate(self) -> None:
         if self.active is not None:
+            _log.debug("skin deactivated: %s", self.active.skin_id)
             self.active.release()
         self.active = None
         state.skin_elements = 0

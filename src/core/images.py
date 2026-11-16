@@ -9,6 +9,9 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Tuple
 
 from core import colors, files, javabridge
+from core.log import get as _get_logger
+
+_log = _get_logger("core.images")
 
 MAX_CACHE_ENTRIES = 3
 
@@ -63,11 +66,19 @@ def decode(path_value: str, max_width: int, max_height: int) -> Optional[Any]:
         if bitmap is None:
             return None
         bitmap = scale_to_fill(bitmap, max_width, max_height)
+        _log.debug(
+            "decoded %s %dx%d (sample %d) -> %dx%d",
+            files.extension(path_value) or "file",
+            width,
+            height,
+            sample,
+            int(bitmap.getWidth()),
+            int(bitmap.getHeight()),
+        )
         _remember(key, bitmap)
         return bitmap
     except Exception as error:
-        if javabridge.logger is not None:
-            javabridge.logger.warning("decode failed: %s" % error)
+        _log.once("decode-%s" % path_value, "decode failed for %s: %s", path_value, error)
         return None
 
 
@@ -109,6 +120,8 @@ def _remember(key: str, bitmap: Any) -> None:
 
 
 def clear_cache() -> None:
+    if _order:
+        _log.debug("bitmap cache cleared (%d entries)", len(_order))
     for key in list(_order):
         bitmap = _cache.pop(key, None)
         try:

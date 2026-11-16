@@ -36,6 +36,8 @@ IGNORE_DIRS = {
     "node_modules",
 }
 IGNORE_FILES = {".gitignore", ".DS_Store"}
+# Never pack previously built archives back into a new one.
+IGNORE_SUFFIXES = (".elyx", ".eaf")
 ARCHIVE_SUFFIX = ".elyx"
 
 
@@ -63,6 +65,8 @@ def iter_files() -> list:
         )
         for name in sorted(names):
             if name in IGNORE_FILES or name.endswith(".pyc"):
+                continue
+            if name.endswith(IGNORE_SUFFIXES):
                 continue
             full = os.path.join(current, name)
             relative = os.path.relpath(full, ROOT).replace(os.sep, "/")

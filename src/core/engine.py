@@ -20,14 +20,9 @@ import time
 from typing import Any, List, Optional
 
 from core import state
+from core.log import get as _get_logger
 
-logger: Any = None
-
-
-def bind(log: Any = None) -> None:
-    global logger
-    if log is not None:
-        logger = log
+_log = _get_logger("core.engine")
 
 
 class Scheduler:
@@ -54,7 +49,10 @@ class Scheduler:
         idle_delay: int,
         background_pause: bool,
     ) -> None:
+        previous = self._fps_limit
         self._fps_limit = max(15, min(60, int(fps_limit)))
+        if previous != self._fps_limit:
+            _log.debug("frame limit %d -> %d fps", previous, self._fps_limit)
         self._idle_enabled = bool(idle_enabled)
         self._idle_delay = max(0, int(idle_delay))
         self._backgrounded = False if not background_pause else self._backgrounded
@@ -63,11 +61,13 @@ class Scheduler:
     def add(self, host: Any) -> None:
         if host not in self._hosts:
             self._hosts.append(host)
+            _log.debug("host attached (%d active, kind=%s)", len(self._hosts), getattr(host, "kind", "?"))
         self.resume()
 
     def remove(self, host: Any) -> None:
         try:
             self._hosts.remove(host)
+            _log.debug("host detached (%d active)", len(self._hosts))
         except ValueError:
             pass
         if not self._hosts:
@@ -86,12 +86,18 @@ class Scheduler:
 
     # -- pause sources ------------------------------------------------------
     def set_global_pause(self, paused: bool) -> None:
-        self._global_pause = bool(paused)
+        paused = bool(paused)
+        if paused != self._global_pause:
+            _log.verbose("scroll pause: %s", "on" if paused else "off")
+        self._global_pause = paused
         if not paused:
             self._last_interaction = time.monotonic()
 
     def set_backgrounded(self, backgrounded: bool) -> None:
-        self._backgrounded = bool(backgrounded)
+        backgrounded = bool(backgrounded)
+        if backgrounded != self._backgrounded:
+            _log.debug("background pause: %s", "on" if backgrounded else "off")
+        self._backgrounded = backgrounded
 
     def note_interaction(self) -> None:
         self._last_interaction = time.monotonic()
@@ -164,11 +170,7 @@ class Scheduler:
             return
         self._last_error = message
         state.note_error(message)
-        if logger is not None:
-            try:
-                logger.warning("%s", message)
-            except Exception:
-                pass
+        _log.warning(message)
 
 
 scheduler = Scheduler()
