@@ -1,0 +1,102 @@
+# English strings, loaded by Elyx as the fallback locale.
+plugin_description: Live chat wallpapers, custom themes and skins for exteraGram.
+header_wallpaper: Live wallpaper
+wallpaper_enabled: Live wallpaper
+wallpaper_enabled_sub: Master switch for the animated background
+wallpaper_kind: Animation type
+wallpaper_kind_sub: How the background is drawn
+kind_gradient: Animated gradient
+kind_parallax: Parallax image
+kind_particles: Particles
+kind_video: Video / GIF loop
+wallpaper_apply_chat: Show in chats
+wallpaper_apply_dialogs: Show in chat list
+wallpaper_apply_everywhere: Show everywhere
+wallpaper_apply_everywhere_sub: Also on other screens of the app
+wallpaper_source: Background source
+wallpaper_source_sub: Built-in, file or URL
+source_builtin: Built-in
+source_file: File
+source_url: URL
+wallpaper_builtin: Built-in background
+wallpaper_url: Image / video URL
+wallpaper_url_sub: Tap to download, long tap to clear the cache
+wallpaper_pick_file: Pick from gallery
+wallpaper_pick_file_sub: Choose an image, GIF or video
+wallpaper_folder_pick: Pick from plugin folder
+wallpaper_folder_pick_sub: Files placed in plugins/custom_extra_ayu/backgrounds
+wallpaper_reload: Reload background
+wallpaper_reload_sub: Re-download and re-decode
+wallpaper_current: Current source
+wallpaper_missing: No background loaded yet
+wallpaper_state_ok: Ready
+header_look: Look
+wallpaper_dim: Dimming
+wallpaper_dim_sub: 0 — no dimming, 100 — nearly black
+wallpaper_blur: Blur
+wallpaper_blur_sub: 0 — off, high values are expensive
+wallpaper_speed: Animation speed
+wallpaper_speed_sub: Percent of the normal speed
+wallpaper_scale: Scale
+wallpaper_scale_sub: Percent of the screen size
+wallpaper_offset_x: Horizontal offset
+wallpaper_offset_y: Vertical offset
+wallpaper_fade: Smooth transitions
+wallpaper_fade_sub: Fade the background in on screen changes
+wallpaper_fade_duration: Transition duration
+wallpaper_tint: Dark theme dimming
+header_particles: Particles
+particles_type: Effect
+particles_count: Amount
+particles_size: Size
+particles_speed: Speed
+particles_alpha: Opacity
+particles_color: Color
+header_per_chat: Chats with custom backgrounds
+per_chat_empty: No chat overrides yet
+per_chat_empty_sub: Use a chat menu item to assign a background
+per_chat_reset_all: Reset all overrides
+per_chat_dialog: Background for this chat
+per_chat_inherit: Use global background
+header_themes: Themes
+theme_active: Active theme
+theme_none: Default look
+theme_create: Create theme from current look
+theme_new_name: New theme
+theme_accent: Accent color
+theme_out_bubble: Outgoing bubble
+theme_in_bubble: Incoming bubble
+theme_bubbles_alpha: Bubble opacity
+theme_header_color: Header color
+theme_page_color: Background color
+theme_apply: Apply theme
+theme_reset: Reset applied colors
+theme_delete: Delete theme
+theme_list_empty: No themes yet
+header_skins: Skins
+skins_enabled: Enable skins
+skins_mode: Mode
+skins_mode_tint: Colors and gradients
+skins_mode_texture: Texture replacement
+skins_mode_auto: Automatic
+skin_active: Active skin
+skin_create: Create skin folder
+skin_reload: Reload skin
+skin_state: Skin status
+skin_element_out: Outgoing bubble
+skin_element_in: Incoming bubble
+skin_element_panel: Input panel
+skin_element_header: Header
+perf_fps: Frame rate limit
+perf_quality: Texture quality
+perf_pause_scroll: Pause while scrolling
+perf_pause_idle: Pause when idle
+perf_pause_background: Pause in background
+perf_eco: Economy mode
+perf_eco_sub: One switch — 30 FPS, pauses, half resolution
+diag_header_env: Environment
+diag_client: Client version
+diag_android: Android
+diag_sdk: Plugin SDK
+diag_copy_log: Copy log
+diag_reset: Reset all settings

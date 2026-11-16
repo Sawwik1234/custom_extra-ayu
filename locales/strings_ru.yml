@@ -1,0 +1,102 @@
+# Русские строки. English используется как fallback.
+plugin_description: Живые обои в чатах, свои темы и скины для exteraGram.
+header_wallpaper: Живые обои
+wallpaper_enabled: Живые обои
+wallpaper_enabled_sub: Главный выключатель анимированного фона
+wallpaper_kind: Тип анимации
+wallpaper_kind_sub: Как рисуется фон
+kind_gradient: Анимированный градиент
+kind_parallax: Параллакс-картинка
+kind_particles: Частицы
+kind_video: Видео / GIF-цикл
+wallpaper_apply_chat: Показывать в чатах
+wallpaper_apply_dialogs: Показывать в списке чатов
+wallpaper_apply_everywhere: Показывать везде
+wallpaper_apply_everywhere_sub: Ещё и на остальных экранах приложения
+wallpaper_source: Источник фона
+wallpaper_source_sub: Встроенный, файл или ссылка
+source_builtin: Встроенный
+source_file: Файл
+source_url: Ссылка
+wallpaper_builtin: Встроенный фон
+wallpaper_url: Ссылка на картинку / видео
+wallpaper_url_sub: Тап — скачать, долгий тап — очистить кэш
+wallpaper_pick_file: Выбрать из галереи
+wallpaper_pick_file_sub: Картинка, GIF или видео
+wallpaper_folder_pick: Выбрать из папки плагина
+wallpaper_folder_pick_sub: Файлы из plugins/custom_extra_ayu/backgrounds
+wallpaper_reload: Перезагрузить фон
+wallpaper_reload_sub: Скачать и декодировать заново
+wallpaper_current: Текущий источник
+wallpaper_missing: Фон ещё не загружен
+wallpaper_state_ok: Готово
+header_look: Внешний вид
+wallpaper_dim: Затемнение
+wallpaper_dim_sub: 0 — без затемнения, 100 — почти чёрный
+wallpaper_blur: Размытие
+wallpaper_blur_sub: 0 — выключено, большие значения дорогие
+wallpaper_speed: Скорость анимации
+wallpaper_speed_sub: Проценты от обычной скорости
+wallpaper_scale: Масштаб
+wallpaper_scale_sub: Проценты от размера экрана
+wallpaper_offset_x: Сдвиг по горизонтали
+wallpaper_offset_y: Сдвиг по вертикали
+wallpaper_fade: Плавные переходы
+wallpaper_fade_sub: Плавное появление фона при смене экрана
+wallpaper_fade_duration: Длительность перехода
+wallpaper_tint: Затемнение в тёмной теме
+header_particles: Частицы
+particles_type: Эффект
+particles_count: Количество
+particles_size: Размер
+particles_speed: Скорость
+particles_alpha: Прозрачность
+particles_color: Цвет
+header_per_chat: Чаты с особыми обоями
+per_chat_empty: Переопределений пока нет
+per_chat_empty_sub: Задайте фон через меню чата
+per_chat_reset_all: Сбросить все переопределения
+per_chat_dialog: Фон для этого чата
+per_chat_inherit: Как глобальный
+header_themes: Темы
+theme_active: Активная тема
+theme_none: Стандартное оформление
+theme_create: Создать тему из текущего вида
+theme_new_name: Новая тема
+theme_accent: Акцентный цвет
+theme_out_bubble: Исходящее сообщение
+theme_in_bubble: Входящее сообщение
+theme_bubbles_alpha: Прозрачность пузырей
+theme_header_color: Цвет шапки
+theme_page_color: Цвет фона
+theme_apply: Применить тему
+theme_reset: Сбросить цвета
+theme_delete: Удалить тему
+theme_list_empty: Тем пока нет
+header_skins: Скины
+skins_enabled: Включить скины
+skins_mode: Режим
+skins_mode_tint: Цвета и градиенты
+skins_mode_texture: Подмена текстур
+skins_mode_auto: Автоматически
+skin_active: Активный скин
+skin_create: Создать папку скина
+skin_reload: Перезагрузить скин
+skin_state: Состояние скина
+skin_element_out: Исходящий пузырь
+skin_element_in: Входящий пузырь
+skin_element_panel: Панель ввода
+skin_element_header: Шапка
+perf_fps: Лимит кадров
+perf_quality: Качество текстуры
+perf_pause_scroll: Пауза при скролле
+perf_pause_idle: Пауза при бездействии
+perf_pause_background: Пауза в фоне
+perf_eco: Экономный режим
+perf_eco_sub: Один переключатель — 30 FPS, паузы, половина разрешения
+diag_header_env: Окружение
+diag_client: Версия клиента
+diag_android: Android
+diag_sdk: SDK плагинов
+diag_copy_log: Скопировать лог
+diag_reset: Сбросить все настройки
