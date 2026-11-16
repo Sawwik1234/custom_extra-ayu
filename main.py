@@ -3,8 +3,10 @@
 Author: @sawwik1234
 
 The entry module only wires things together: every feature lives in its own
-package under ``src/`` so the plugin can be moved to Elyx modules later without
-touching this file beyond the imports.
+package next to this file (``core/``, ``wallpaper/``, ``themes/``, ``skins/``,
+``ayu_ui/``). They sit at the archive root on purpose: Elyx resolves plugin
+imports relative to the plugin root, so ``from core import prefs`` finds
+``core/prefs.py`` while a nested ``src/`` folder would not be found at all.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
 metainfo: metainfo.yml
-main: src/main.py
+main: main.py
 strings: locales
 assets: res
