@@ -1,0 +1,4 @@
+metainfo: metainfo.yml
+main: src/main.py
+strings: locales
+assets: res
