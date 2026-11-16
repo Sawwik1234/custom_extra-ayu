@@ -35,7 +35,8 @@ IGNORE_DIRS = {
     ".venv",
     "node_modules",
 }
-IGNORE_FILES = {".gitignore", ".DS_Store"}
+# User documentation and CI config stay in the repository, not in the archive.
+IGNORE_FILES = {".gitignore", ".DS_Store", "README.md"}
 # Never pack previously built archives back into a new one.
 IGNORE_SUFFIXES = (".elyx", ".eaf")
 ARCHIVE_SUFFIX = ".elyx"
