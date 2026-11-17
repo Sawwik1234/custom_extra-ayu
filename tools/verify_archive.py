@@ -188,10 +188,27 @@ class SDKImporter(importlib.abc.MetaPathFinder, importlib.abc.Loader):
 class HostPlugin:
     """What ``elyxcore._plugin.ElyxPlugin`` gives the plugin at runtime."""
 
+    # Names BasePlugin.__init__ assigns. A subclass property with one of these
+    # names raises "property has no setter" inside the base constructor, which
+    # is invisible to any harness that does not assign them too.
+    OWNED_ATTRIBUTES = ("id", "name", "description", "author", "version",
+                        "min_version", "icon", "error_message", "enabled",
+                        "initialized", "isenabled")
+
     def __init__(self, plugin_id="", plugin_path=""):
+        self.id = plugin_id
+        self.name = ""
+        self.description = ""
+        self.author = ""
+        self.version = ""
+        self.min_version = ""
+        self.icon = None
+        self.error_message = None
+        self.enabled = False
+        self.initialized = False
+        self.isenabled = False
         self._plugin_id = plugin_id
         self._plugin_path = plugin_path
-        self.id = plugin_id
         self.logger = Logger()
         self._settings = {}
         self.height = 0

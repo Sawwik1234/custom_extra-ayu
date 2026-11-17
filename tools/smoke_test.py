@@ -135,8 +135,25 @@ class FakeBasePlugin:
     device throws, which is how "loaded %s v%s" reached a phone broken.
     """
 
+    # Attributes that BasePlugin.__init__ assigns unconditionally. Every one of
+    # them is a trap: a subclass property with the same name raises
+    # "property has no setter" inside __init__, before the plugin even loads.
+    OWNED_ATTRIBUTES = ("id", "name", "description", "author", "version",
+                        "min_version", "icon", "error_message", "enabled",
+                        "initialized", "isenabled")
+
     def __init__(self, plugin_id="custom_extra_ayu", plugin_path=None):
         self.id = plugin_id
+        self.name = ""
+        self.description = ""
+        self.author = ""
+        self.version = ""
+        self.min_version = ""
+        self.icon = None
+        self.error_message = None
+        self.enabled = False
+        self.initialized = False
+        self.isenabled = False
         self._plugin_path = plugin_path or ROOT
         self.logger = FakeLogger()
         self._settings = {}
@@ -559,6 +576,41 @@ def main():
 
     check("package layout (Elyx import roots)", t_package_layout)
 
+    def t_base_attribute_conflicts():
+        """The plugin class must not shadow anything BasePlugin assigns in __init__.
+
+        A property named like a base attribute makes the base constructor raise
+        ``AttributeError: property 'version' ... has no setter`` inside
+        ``BasePlugin.__init__``. Checking only the smoke-test stub is not enough,
+        so the names are compared statically against the declaration list.
+        """
+
+        import ast
+
+        owned = set(FakeBasePlugin.OWNED_ATTRIBUTES)
+        offenders = []
+        for path in sorted(pathlib.Path(ROOT).glob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ClassDef):
+                    continue
+                for item in node.body:
+                    if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name in owned:
+                        offenders.append("%s: %s.%s()" % (path.name, node.name, item.name))
+                    elif isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
+                        if item.target.id in owned:
+                            offenders.append("%s: %s.%s attribute" % (path.name, node.name, item.target.id))
+                    elif isinstance(item, ast.Assign):
+                        for target in item.targets:
+                            if isinstance(target, ast.Name) and target.id in owned:
+                                offenders.append("%s: %s.%s attribute" % (path.name, node.name, target.id))
+        assert not offenders, (
+            "class members shadow BasePlugin.__init__ attributes and break construction: %s"
+            % offenders
+        )
+
+    check("no BasePlugin attribute shadowing", t_base_attribute_conflicts)
+
     def t_legacy_attributes():
         """The plugin must never touch single-file-plugin-only attributes.
 
@@ -586,7 +638,9 @@ def main():
 
         plugin_main = load_plugin_module()
         meta = plugin_import("ayu_meta")
-        assert meta.version() == plugin_main.CustomExtraAyuPlugin().version, "version must come from metainfo"
+        assert meta.version() == plugin_main.CustomExtraAyuPlugin().plugin_version, (
+            "version must come from metainfo"
+        )
         assert meta.name(), "metainfo name is empty"
 
     check("no legacy plugin attributes", t_legacy_attributes)

@@ -74,19 +74,26 @@ def _dialog_title(context: Optional[Dict[str, Any]]) -> str:
 class CustomExtraAyuPlugin(BasePlugin):
     """Entry point of the plugin.
 
-    The Elyx base class only stores ``id`` (set by ``init``) and the plugin path:
-    ``getName()``, ``version`` and ``sdk_version`` exist on legacy single-file
-    plugins, where the host patched module constants onto the instance, and are
-    absent here. Identity is therefore read from ``metainfo.yml`` through
-    ``ayu_meta`` instead of touching attributes that may not exist.
+    Never shadow a name owned by the base class. The workload here is
+    ``BasePlugin.__init__``: it assigns ``self.version = ''`` (as do ``name``,
+    ``author``, ``description``, ``icon``, ``enabled``, ``initialized``). A
+    ``version`` property on the subclass turns that assignment into
+    ``AttributeError: property 'version' ... has no setter`` **inside
+    __init__**, before any plugin code runs, so the whole plugin fails to
+    construct.
+
+    Metadata therefore lives in ``ayu_meta`` and is exposed under distinct
+    names (``plugin_name`` / ``plugin_version``), which keeps working whether
+    the host's BasePlugin defines ``version`` or not — the two SDK generations
+    disagree on that, and a fixed attribute name is the only common ground.
     """
 
     @property
-    def display_name(self) -> str:
+    def plugin_name(self) -> str:
         return meta.name()
 
     @property
-    def version(self) -> str:
+    def plugin_version(self) -> str:
         return meta.version()
 
     # -- lifecycle ----------------------------------------------------------
@@ -125,8 +132,8 @@ class CustomExtraAyuPlugin(BasePlugin):
 
         _log.info(
             "loaded %s v%s | wallpaper=%s kind=%s source=%s | skins=%s | android API %d",
-            self.display_name,
-            self.version,
+            self.plugin_name,
+            self.plugin_version,
             self.prefs.bool("wallpaper_enabled"),
             self.wallpaper.current_kind(),
             self.wallpaper.describe_source(),
@@ -786,7 +793,7 @@ class CustomExtraAyuPlugin(BasePlugin):
         """Copy environment plus the real recent log lines."""
         header = [
             "=== Custom Extra Ayu ===",
-            "build: %s" % self.version,
+            "build: %s" % self.plugin_version,
             "client: %s · android %s (API %d)" % (
                 self.client_version(),
                 self.android_release(),
