@@ -34,6 +34,7 @@ import ayu_engine as engine
 import ayu_files as files
 import ayu_javabridge as javabridge
 import ayu_log as log_module
+import ayu_meta as meta
 import ayu_prefs as prefs_module
 import ayu_state as state
 import ayu_theme as theme
@@ -71,6 +72,23 @@ def _dialog_title(context: Optional[Dict[str, Any]]) -> str:
 
 
 class CustomExtraAyuPlugin(BasePlugin):
+    """Entry point of the plugin.
+
+    The Elyx base class only stores ``id`` (set by ``init``) and the plugin path:
+    ``getName()``, ``version`` and ``sdk_version`` exist on legacy single-file
+    plugins, where the host patched module constants onto the instance, and are
+    absent here. Identity is therefore read from ``metainfo.yml`` through
+    ``ayu_meta`` instead of touching attributes that may not exist.
+    """
+
+    @property
+    def display_name(self) -> str:
+        return meta.name()
+
+    @property
+    def version(self) -> str:
+        return meta.version()
+
     # -- lifecycle ----------------------------------------------------------
     def on_plugin_load(self) -> None:
         i18n.init()
@@ -107,7 +125,7 @@ class CustomExtraAyuPlugin(BasePlugin):
 
         _log.info(
             "loaded %s v%s | wallpaper=%s kind=%s source=%s | skins=%s | android API %d",
-            self.getName(),
+            self.display_name,
             self.version,
             self.prefs.bool("wallpaper_enabled"),
             self.wallpaper.current_kind(),
@@ -619,15 +637,15 @@ class CustomExtraAyuPlugin(BasePlugin):
             bulletin_error("empty file")
             return
         try:
-            meta = json.loads(raw)
+            payload = json.loads(raw)
         except Exception:
             bulletin_error("invalid json")
             return
-        skin_id = str(meta.get("id") or meta.get("name") or "imported").lower().replace(" ", "_")
+        skin_id = str(payload.get("id") or payload.get("name") or "imported").lower().replace(" ", "_")
         skin_id = "".join(ch for ch in skin_id if ch.isalnum() or ch in "_-") or "imported"
         target_folder = os.path.join(files.skins_dir(), skin_id)
         files.ensure(target_folder)
-        files.write_json(os.path.join(skin_id, "skin.json"), meta)
+        files.write_json(os.path.join(skin_id, "skin.json"), payload)
         self.prefs.set("skin_active", skin_id)
         self.prefs.set("skins_enabled", True)
         bulletin_success(os.path.join(files.skins_dir(), skin_id))
@@ -726,17 +744,28 @@ class CustomExtraAyuPlugin(BasePlugin):
             return "unknown"
 
     def plugin_sdk_version(self) -> str:
-        """Host SDK version, read defensively: the attribute may be a string."""
+        """Host SDK version.
+
+        Elyx plugins have no ``sdk_version`` attribute — it was a single-file
+        plugin constant. The runtime exposes the value in ``_sdk_version`` and
+        the plugin only *requires* a minimum in ``metainfo.yml``.
+        """
         try:
-            value = getattr(self, "sdk_version", None)
+            import _sdk_version  # type: ignore
+
+            value = getattr(_sdk_version, "__version__", None)
             if isinstance(value, str) and value:
                 return value
-            version = getattr(self, "sdkVersion", None)
-            if isinstance(version, str) and version:
-                return version
         except Exception:
             pass
-        return "unknown"
+        for attribute in ("sdk_version", "sdkVersion"):
+            try:
+                value = getattr(self, attribute, None)
+                if isinstance(value, str) and value:
+                    return value
+            except Exception:
+                continue
+        return meta.sdk_requirement() or "unknown"
 
     def set_debug(self, value: Any) -> None:
         enabled = bool(value)
