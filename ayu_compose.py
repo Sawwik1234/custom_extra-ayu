@@ -69,12 +69,22 @@ def switch(key: str, text: str, default: bool, subtext: Optional[str] = None,
 
 def selector(key: str, text: str, default: int, items: List[str],
              subtext: Optional[str] = None, on_change: Optional[Callable] = None) -> Any:
+    """Selector row.
+
+    ``ui.settings.Selector`` is a dataclass with the fields
+    ``key, text, default, items, icon, on_change, on_long_click, link_alias,
+    type`` — there is **no** ``subtext``, unlike ``Switch``/``Input``/``Text``.
+    Passing it raises ``TypeError`` at construction, i.e. while the settings
+    page is being built, so the explanation is appended to the title instead.
+    """
+    label = text
+    if subtext:
+        label = "%s\n%s" % (text, subtext)
     return _Selector(
         key=key,
-        text=text,
+        text=label,
         default=default,
         items=items,
-        subtext=subtext,
         icon="msg_list",
         on_change=on_change,
     )
