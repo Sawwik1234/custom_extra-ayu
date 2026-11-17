@@ -1,0 +1,45 @@
+name: Release asset
+
+# Attaches the built plugin archive to the release for the pushed tag.
+# Used because the archive is committed to the repo: the tag must contain
+# a ready-to-install custom_extra_ayu-<version>.elyx.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to attach the archive to"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve tag and archive
+        id: meta
+        run: |
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          version="${tag#v}"
+          file="custom_extra_ayu-${version}.elyx"
+          if [ ! -f "$file" ]; then
+            echo "::error::archive $file is missing in the repository"
+            ls -l *.elyx || true
+            exit 1
+          fi
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+          ls -l "$file"
+      - name: Upload asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          files: ${{ steps.meta.outputs.file }}
+          fail_on_unmatched_files: true
+          make_latest: true
