@@ -2,7 +2,7 @@ id: custom_extra_ayu
 name: Custom Extra Ayu
 description: "{plugin_description}"
 author: "@sawwik1234"
-version: "1.0.1"
+version: "1.0.2"
 icon: exteraPlugins/1
 app_version: ">=12.5.1"
 sdk_version: ">=1.4.6.3"

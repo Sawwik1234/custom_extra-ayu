@@ -2,11 +2,16 @@
 
 Author: @sawwik1234
 
-The entry module only wires things together: every feature lives in its own
-package next to this file (``core/``, ``wallpaper/``, ``themes/``, ``skins/``,
-``ayu_ui/``). They sit at the archive root on purpose: Elyx resolves plugin
-imports relative to the plugin root, so ``from core import prefs`` finds
-``core/prefs.py`` while a nested ``src/`` folder would not be found at all.
+The entry module only wires things together; every feature is a flat module in
+this same directory (``ayu_wallpaper.py``, ``ayu_skins.py``, ...).
+
+Flat modules are a hard requirement, not a style choice. Elyx resolves plugin
+imports against the plugin root, but it builds packages with
+``importlib.util.spec_from_loader(..., is_package=True)``, which leaves
+``__path__`` empty: ``import core`` succeeds while ``import core.assets`` raises
+``ImportError`` ("unknown location"). Subdirectories can therefore never be
+imported from a plugin here, so the code stays flat and modules that would have
+formed a package use an ``ayu_<area>_<name>`` prefix instead.
 """
 
 from __future__ import annotations
@@ -23,19 +28,27 @@ from base_plugin import (
     MenuItemType,
 )  # type: ignore
 
-from core import assets, compat, engine, files, javabridge, log as log_module, prefs as prefs_module, state, theme
-import i18n
-from i18n import t
-from skins import apply as skins_apply
-from skins import registry as skins_registry
-from themes import model as themes_model
-from ayu_ui import compose
-from ayu_ui.bulletin import bulletin_error, bulletin_info, bulletin_success, clipboard
-from ayu_ui.dialogs import dialog_choose
-from ayu_ui.pages import Pages
-from core.log import get as _get_logger
-from wallpaper import attach as attach_module
-from wallpaper.service import WallpaperService
+import ayu_assets as assets
+import ayu_compat as compat
+import ayu_engine as engine
+import ayu_files as files
+import ayu_javabridge as javabridge
+import ayu_log as log_module
+import ayu_prefs as prefs_module
+import ayu_state as state
+import ayu_theme as theme
+import ayu_i18n as i18n
+from ayu_i18n import t
+import ayu_skin_apply as skins_apply
+import ayu_skins as skins_registry
+import ayu_themes as themes_model
+import ayu_compose as compose
+from ayu_bulletin import bulletin_error, bulletin_info, bulletin_success, clipboard
+from ayu_dialogs import dialog_choose
+from ayu_pages import Pages
+from ayu_log import get as _get_logger
+import ayu_attach as attach_module
+from ayu_wallpaper import WallpaperService
 
 
 _log = _get_logger("main")
@@ -125,7 +138,7 @@ class CustomExtraAyuPlugin(BasePlugin):
         except Exception:
             pass
         try:
-            from core import images
+            import ayu_images as images
 
             images.clear_cache()
         except Exception:

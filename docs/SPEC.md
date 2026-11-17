@@ -43,23 +43,33 @@
 
 ## 3. Архитектура
 
-Старт как один файл, но код сразу разложен по слоям, чтобы переезд на Elyx был
-механическим (вынести слои в `*.py` рядом с `main.py` + `metainfo.yml` + `locales/`).
+Код разложен по слоям, но **все модули плоские** — в корне архива, без
+подкаталогов.
+
+Причина техническая: импортёр Elyx разрешает импорты от корня плагина, но
+пакеты создаёт через `spec_from_loader(..., is_package=True)`, а это оставляет
+`submodule_search_locations` пустым. В результате `import core` проходит, а
+`import core.assets` падает с `ImportError` («unknown location»). Поэтому
+каталоги заменены префиксом `ayu_`:
 
 ```
-custom_extra_ayu.py        # entry: метаданные, класс плагина, регистрация
-├── core/settings_model    # типы настроек, дефолты, миграции, валидация
-├── core/prefs             # обёртка над get_setting/set_setting + кэш значений
-├── core/assets            # источник фона: bundled | gallery | url, кэш файлов
-├── core/engine            # тик-драйвер анимации, единый для всех экранов
-├── wallpaper/renderer     # video / particles / parallax / gradient-lottie
-├── wallpaper/attach       # внедрение в ChatActivity, DialogsActivity и др.
-├── wallpaper/per_chat     # переопределения на dialog_id
-├── themes/model           # схема темы, экспорт/импорт, применение
-├── themes/apply           # применение цветов/градиентов к текущей теме
-├── skins/registry         # пары "логический элемент → свой drawable"
-├── skins/hook             # хуки подмены drawable
-└── ui/pages               # страницы настроек и превью
+main.py                # entry: класс плагина, меню, регистрация, диагностика
+ayu_log.py             # уровни, теги, кольцевой буфер, once/timed
+ayu_prefs.py           # обёртка над get_setting/set_setting + кэш значений
+ayu_files.py           # каталоги и файловые операции
+ayu_net.py             # скачивание с кэшем
+ayu_assets.py          # источник фона: bundled | gallery | url
+ayu_engine.py          # тик-драйвер анимации, единый для всех экранов
+ayu_render_*.py        # video / particles / parallax / gradient
+ayu_host.py            # жизненный цикл фонового view
+ayu_wallpaper.py       # сервис обоев и экраны
+ayu_attach.py          # внедрение в ChatActivity, DialogsActivity и др.
+ayu_overrides.py       # переопределения на dialog_id
+ayu_themes.py          # схема темы, экспорт/импорт
+ayu_preview.py         # превью темы
+ayu_skins.py           # пары «логический элемент → свой drawable»
+ayu_skin_apply.py      # применение скина
+ayu_pages.py           # страницы настроек и превью
 ```
 
 Правила: никакой работы с сетью/диском в UI-потоке (всё через
