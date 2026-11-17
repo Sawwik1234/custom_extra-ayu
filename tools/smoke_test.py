@@ -122,15 +122,35 @@ class FakeMenuItemData:
 
 
 class FakeBasePlugin:
-    """Mirrors the parts of BasePlugin the plugin uses."""
+    """Mirrors ``elyxcore._plugin.ElyxPlugin``, not the legacy BasePlugin.
 
-    def __init__(self):
+    Deliberate omissions, because the real class does not have them:
+
+    * ``getName()`` — never existed on Elyx plugins;
+    * ``version`` / ``sdk_version`` — were single-file plugin module constants
+      that the old host patched onto the instance; an Elyx plugin reads them
+      from ``metainfo.yml`` instead.
+
+    A stub that invents these attributes hides exactly the AttributeError the
+    device throws, which is how "loaded %s v%s" reached a phone broken.
+    """
+
+    def __init__(self, plugin_id="custom_extra_ayu", plugin_path=None):
+        self.id = plugin_id
+        self._plugin_path = plugin_path or ROOT
         self.logger = FakeLogger()
-        self.getName = lambda: "Custom Extra Ayu"
-        self.version = "1.0.1"
-        self.sdk_version = "1.4.6.3"
         self._settings = {}
         self._hooks = []
+
+    # ElyxPlugin surface used by the plugin
+    def getId(self):
+        return self.id
+
+    def getPluginPath(self):
+        return self._plugin_path
+
+    def get_metainfo(self):
+        return {}
 
     def get_setting(self, key, default=None):
         return self._settings.get(key, default)
@@ -538,6 +558,38 @@ def main():
         assert os.path.isfile(os.path.join(ROOT, entry)), "entry module must be %s" % entry
 
     check("package layout (Elyx import roots)", t_package_layout)
+
+    def t_legacy_attributes():
+        """The plugin must never touch single-file-plugin-only attributes.
+
+        ``getName()``, ``version`` and ``sdk_version`` do not exist on
+        ``ElyxPlugin``. Reading them raised
+        ``AttributeError: 'CustomExtraAyuPlugin' object has no attribute 'getName'``
+        inside ``on_plugin_load`` and left the plugin unusable, so the names are
+        checked statically as well as through the lifecycle above.
+        """
+
+        import ast
+
+        forbidden = {"getName", "sdkVersion"}
+        offenders = []
+        for path in sorted(pathlib.Path(ROOT).glob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Attribute) and node.attr in forbidden:
+                    offenders.append("%s: self.%s" % (path.name, node.attr))
+                if (isinstance(node, ast.Attribute) and node.attr in {"version", "sdk_version", "name"}
+                        and isinstance(node.value, ast.Name) and node.value.id == "self"
+                        and isinstance(node.ctx, ast.Store)):
+                    offenders.append("%s: writes self.%s" % (path.name, node.attr))
+        assert not offenders, "legacy BasePlugin attributes used by an Elyx plugin: %s" % offenders
+
+        plugin_main = load_plugin_module()
+        meta = plugin_import("ayu_meta")
+        assert meta.version() == plugin_main.CustomExtraAyuPlugin().version, "version must come from metainfo"
+        assert meta.name(), "metainfo name is empty"
+
+    check("no legacy plugin attributes", t_legacy_attributes)
 
     print()
     if FAILURES:

@@ -97,6 +97,20 @@ docs/SPEC.md         техническое задание
 пустым `__path__`, поэтому `import core` проходит, а `import core.assets` падает
 с «unknown location». Префикс `ayu_` заменяет бывшие каталоги.
 
+## Проверки
+
+```bash
+python3 tools/smoke_test.py                              # 10 проверок по репозиторию
+python3 tools/elyx_pack.py                               # сборка архива
+python3 tools/verify_archive.py builds/*.elyx            # загрузка архива как в движке
+```
+
+`tools/verify_archive.py` распаковывает готовый `.elyx` и выполняет его так, как это
+делает движок Elyx: entry из `refmap.yml`, импорты от корня плагина, пакеты с пустым
+`__path__`, конструктор `PluginClass(plugin_id, plugin_path)`, затем
+`on_plugin_load` / `create_settings` / `on_plugin_unload`. Ловит имена атрибутов,
+которых у `ElyxPlugin` нет, и раскладку файлов — до установки на телефон.
+
 ## Логи
 
 ```bash
