@@ -156,55 +156,70 @@ class FakeBasePlugin:
 
 
 class FakeSDKImporter:
-    """Mimics the Elyx importer: plugin-local modules resolve against the plugin root.
+    """Mimics the Elyx importer closely enough to catch layout mistakes.
 
-    The real engine (``elyxcore._importer``) keeps its own finder on
-    ``sys.meta_path`` and resolves imports of a plugin module against that
-    plugin's *archive root*, not against the folder of the entry file and not
-    through ``sys.path``. That is why ``from core import prefs`` works while
-    ``src/core/prefs.py`` would not be found: the path is ``core/prefs.py``.
+    Facts taken from the SDK source (``elyxcore/_importer.py``):
 
-    This stub reproduces those rules so the smoke test fails the same way the
-    device does when a module is misplaced.
+    * plugin-local modules resolve against the plugin *root*, not from
+      ``sys.path`` and not from the folder of the entry file;
+    * the entry module is ``<root>/main.py``;
+    * packages are built with
+      ``spec_from_loader(..., is_package=True)``, and that call leaves
+      ``submodule_search_locations`` empty — ``import core`` works, while
+      ``import core.assets`` fails with "unknown location".
+
+    The last point is why this stub refuses subpackages outright: on device a
+    directory-based layout can never be imported, so the test would be lying if
+    it allowed one.
     """
 
-    LOCAL_ROOTS = ("core", "wallpaper", "themes", "skins", "ayu_ui", "i18n", "main")
-    SRC = ROOT  # plugin root: local modules live at the archive root, as on device
+    ENTRY = "main"
+
+    def __init__(self):
+        self.root = ROOT
 
     def find_spec(self, fullname, path=None, target=None):
-        if fullname.split(".")[0] not in self.LOCAL_ROOTS:
-            return None
-        base = os.path.join(self.SRC, *fullname.split("."))
-        for candidate, is_pkg in ((os.path.join(base, "__init__.py"), True),
-                                  (base + ".py", False)):
-            if os.path.isfile(candidate):
-                loader = importlib.machinery.SourceFileLoader(fullname, candidate)
-                return importlib.util.spec_from_file_location(
-                    fullname, candidate, loader=loader,
-                    submodule_search_locations=[base] if is_pkg else None,
-                )
+        base = os.path.join(self.root, *fullname.split("."))
+        if os.path.isfile(base + ".py"):
+            loader = importlib.machinery.SourceFileLoader(fullname, base + ".py")
+            return importlib.util.spec_from_file_location(fullname, base + ".py", loader=loader)
         if os.path.isdir(base):
-            spec = importlib.machinery.ModuleSpec(fullname, None, is_package=True)
-            spec.submodule_search_locations = [base]
+            # Elyx hands out a package nobody can put submodules into.
+            spec = importlib.machinery.ModuleSpec(fullname, self, is_package=True)
+            spec.submodule_search_locations = []
             return spec
         return None
 
+    def create_module(self, spec):
+        module = types.ModuleType(spec.name)
+        module.__file__ = spec.origin or os.path.join(self.root, spec.name)
+        return module
+
+    def exec_module(self, module):
+        if module.__spec__.origin is None or os.path.isdir(module.__file__):
+            return  # empty package, exactly what the device gets
+        with open(module.__file__, "r", encoding="utf-8") as handle:
+            code = compile(handle.read(), module.__file__, "exec")
+        exec(code, module.__dict__)
+
     def install(self):
+        # Elyx finder sits in front of the standard one and only handles
+        # plugin-local names; here the plugin root is a real directory, so the
+        # finder has to stay last to keep stdlib and SDK imports working.
         sys.meta_path.append(self)
 
 
 def load_plugin_module():
-    """Import the plugin the way the SDK does: as ``elyx_plugins.<id>.main``."""
+    """Import the entry module the way the SDK does: ``<root>/main.py``."""
     import importlib
 
-    name = "main"
-    if name in sys.modules:
-        return sys.modules[name]
-    return importlib.import_module(name)
+    if FakeSDKImporter.ENTRY in sys.modules:
+        return sys.modules[FakeSDKImporter.ENTRY]
+    return importlib.import_module(FakeSDKImporter.ENTRY)
 
 
 def plugin_import(name):
-    """Import a plugin-local module the way plugin code does (``from core import x``)."""
+    """Import a plugin-local module the way plugin code does."""
     return importlib.import_module(name)
 
 
@@ -309,15 +324,15 @@ def main():
     install_stubs()
     FakeSDKImporter().install()
 
-    i18n = plugin_import("i18n")
+    i18n = plugin_import("ayu_i18n")
     i18n.init()
 
-    colors = plugin_import("core.colors")
-    files = plugin_import("core.files")
-    prefs = plugin_import("core.prefs")
-    state = plugin_import("core.state")
-    Overrides = plugin_import("wallpaper.overrides").Overrides
-    themes_model = plugin_import("themes.model")
+    colors = plugin_import("ayu_colors")
+    files = plugin_import("ayu_files")
+    prefs = plugin_import("ayu_prefs")
+    state = plugin_import("ayu_state")
+    Overrides = plugin_import("ayu_overrides").Overrides
+    themes_model = plugin_import("ayu_themes")
 
     def t_colors():
         assert colors.parse("#FFF") == 0xFFFFFFFF
@@ -411,7 +426,7 @@ def main():
     check("every settings page", t_pages)
 
     def t_logging():
-        log_module = plugin_import("core.log")
+        log_module = plugin_import("ayu_log")
 
         class HostLogger(FakeLogger):
             pass
@@ -475,20 +490,34 @@ def main():
     check("logging layer", t_logging)
 
     def t_package_layout():
-        """Every plugin-local import must resolve inside the archive root.
+        """The archive must be importable by the Elyx importer.
 
-        Elyx resolves imports relative to the plugin root, so a module imported
-        as ``core.prefs`` has to be packed as ``core/prefs.py``. A nested
-        ``src/`` folder is not on that path and breaks the plugin at load time.
+        Two rules, both learned the hard way on a device:
+
+        1. every plugin-local import must exist at the archive root — a nested
+           ``src/`` folder is not on the import path Elyx uses;
+        2. no subdirectories at all. Elyx builds packages with an empty
+           ``__path__``, so ``import core`` works and ``import core.assets``
+           fails with "unknown location". Flat modules are the only layout that
+           survives, which is why the code is a set of ``ayu_*.py`` files.
         """
 
         import ast
 
-        local = {"core", "wallpaper", "themes", "skins", "ayu_ui", "i18n"}
+        root = pathlib.Path(ROOT)
+        entry = "main.py"
+        local = {path.stem for path in root.glob("*.py")}
+
+        folders = [path.name for path in root.iterdir() if path.is_dir() and not path.name.startswith(".")]
+        allowed_folders = {"locales", "res", "tools", "docs", "builds", "__pycache__"}
+        stray = sorted(set(folders) - allowed_folders)
+        assert not stray, (
+            "directories are not importable in a plugin: %s — move their modules to the "
+            "archive root as flat files" % stray
+        )
+
         missing = []
-        for path in sorted(pathlib.Path(ROOT).glob("*.py")) + sorted(
-            path for folder in local - {"i18n"} for path in (pathlib.Path(ROOT) / folder).rglob("*.py")
-        ):
+        for path in sorted(root.glob("*.py")):
             tree = ast.parse(path.read_text(encoding="utf-8"))
             for node in ast.walk(tree):
                 names = []
@@ -497,19 +526,16 @@ def main():
                 elif isinstance(node, ast.Import):
                     names = [alias.name for alias in node.names]
                 for name in names:
-                    root_name = name.split(".")[0]
-                    if root_name not in local:
+                    if name.split(".")[0] not in local:
                         continue
-                    relative = os.path.join(ROOT, *name.split("."))
-                    if not (os.path.isfile(relative + ".py") or os.path.isdir(relative)):
-                        missing.append("%s → %s" % (path.relative_to(ROOT), name))
-        assert not missing, "imports Elyx cannot resolve at the archive root: %s" % missing
+                    if not os.path.isfile(os.path.join(ROOT, *name.split(".")) + ".py"):
+                        missing.append("%s -> %s" % (path.name, name))
+        assert not missing, "imports Elyx cannot resolve: %s" % missing
 
-        # refmap must point at the real entry file
         refmap = pathlib.Path(ROOT, "refmap.yml").read_text(encoding="utf-8")
-        entry = [line.split(":", 1)[1].strip() for line in refmap.splitlines() if line.startswith("main:")][0]
-        assert os.path.isfile(os.path.join(ROOT, entry)), "refmap main points to a missing file: %s" % entry
-        assert os.path.isfile(os.path.join(ROOT, "main.py")), "entry module must be main.py"
+        declared = [line.split(":", 1)[1].strip() for line in refmap.splitlines() if line.startswith("main:")][0]
+        assert os.path.isfile(os.path.join(ROOT, declared)), "refmap main points to a missing file: %s" % declared
+        assert os.path.isfile(os.path.join(ROOT, entry)), "entry module must be %s" % entry
 
     check("package layout (Elyx import roots)", t_package_layout)
 
